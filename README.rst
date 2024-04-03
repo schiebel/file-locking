@@ -4,7 +4,7 @@ Test Concurrent Locking of Single File by Multiple Processes
 This directory contains C++ test code for testing the locking of a single file by multiple processes. It was developed
 to test the behavior of the Lustre "global locking" feature which can be configured on or off. Problems arose when testing
 global locking with `casacore <https://github.com/casacore/casacore>`_. In these tests, it appeared as though using
-global locking with `CASA <https://casadocs.readthedocs.io/en/latest/index.html>` resulted in deadlock.
+global locking with `CASA <https://casadocs.readthedocs.io/en/latest/index.html>`_ resulted in deadlock.
 
 Implementation
 --------------
