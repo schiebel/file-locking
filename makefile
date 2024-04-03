@@ -10,7 +10,8 @@ locker: locker.o FileLocker.o
 
 package:
 	cd .. && tar zcf file-locking.tar.gz file-locking/makefile file-locking/controller.cc file-locking/locker.cc \
-                                         file-locking/FileLocker.h file-locking/FileLocker.cc 
+                                         file-locking/FileLocker.h file-locking/FileLocker.cc file-locking/README.rst \
+                                         file-locking/LICENSE
 
 clean:
 	rm locker controller locker.o controller.o FileLocker.o
