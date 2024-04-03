@@ -1,7 +1,8 @@
 The files in this directory are avalable under the BSD 3-Clause License
-EXCEPT FOR the files "wholocked.c" and "FileLocker.cc".
+EXCEPT FOR the files "wholocked.c",  "FileLocker.h" and "FileLocker.cc".
 
 The file "wholocked.c" is available under the terms of the GNU General Public License.
+The file "FileLocker.h" is available under the terms of the GNU Library General Public License.
 The file "FileLocker.cc" is available under the terms of the GNU Library General Public License.
 
 Please see the first section of each file for details.
