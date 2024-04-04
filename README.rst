@@ -48,7 +48,7 @@ release it. This is done with the code::
       send( "stop" );
 
 The locking processes only send a result back to the controller when they encounter an empty command queue. This
-implementation if flexible and allows for testing complicated locking behavior.
+implementation is flexible and allows for testing complicated locking behavior.
 
 Mon Mar 18 13:36:34 EDT 2024
 ------------------------------------------------------------------------------------------------------------------------
