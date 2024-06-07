@@ -26,9 +26,14 @@ using std::map;
 using std::atol;
 using std::tuple;
 using std::pair;
+using std::find;
+using std::distance;
 
 inline auto now( ) { return high_resolution_clock::now( ); }
 // lock message for starting a lock at 'start' time_point
+inline string fortime( unsigned period, const string &action ){
+    return format("{}@{}", action, period);
+}
 inline string at( time_point<system_clock> start, const string &action  ) {
     return format("{}@{:%Y-%m-%d %H:%M:%S}", action, start);
 }
@@ -51,8 +56,8 @@ pair<pid_t,string> unpack_reply( const string &reply ) {
 //*** https://stackoverflow.com/a/64459832/2903943                                          ***
 //*********************************************************************************************
 int main( int argc, char *argv[] ) {
-    if ( argc != 3 ) {
-        cerr << "Expected two arguments, file to lock and number of lockers to create." << endl;
+    if ( argc != 2 ) {
+        cerr << "Expected one arguments, file to lock." << endl;
         exit(1);
     }
 
@@ -62,28 +67,29 @@ int main( int argc, char *argv[] ) {
         cerr << "File to lock is expected to be the first argument." << endl;
         exit(1);
     }
-    
-    int locker_count = atoi( argv[2] );
-    if ( locker_count <= 0 ) {
-        cerr << "Locker count argument must be a natural number (i.e. greater than zero)." << endl;
-        exit(1);
-    }
-    if ( locker_count > 100 ) {
-        cerr << "Sorry " << locker_count << " is too many agents for me to create." << endl;
-        exit(1);
-    }
 
+    int locker_count = 23;
     cout << "Controller will create " << locker_count << " locking agents." << endl;
     std::vector<zmq::context_t*> ctrl_contexts(locker_count);
     std::vector<zmq::socket_t*> ctrl_sockets(locker_count);
 
-    auto send = [&ctrl_sockets]( string message ) {
-                    cout << "Controller sending: '" << message  << "'" << endl;
-                    for_each( ctrl_sockets.begin( ), ctrl_sockets.end( ),
-                              [message](zmq::socket_t *sock) {
-                                  // Send a request
-                                  zmq::message_t r1( message );
-                                  sock->send(r1); } );
+    auto send = [&ctrl_sockets]( string message, zmq::socket_t *sock=0 ) {
+                    if ( sock ) {
+                        auto it = find(ctrl_sockets.begin( ), ctrl_sockets.end( ), sock);
+                        if ( it == ctrl_sockets.end( ) )
+                            cout << "Controller sending: '" << message  << "' to a stray socket only" << endl;
+                        else
+                            cout << "Controller sending: '" << message  << "' to [" << distance(ctrl_sockets.begin( ), it) << "] only" << endl;
+                        zmq::message_t r1( message );
+                        sock->send(r1);
+                    } else {
+                        cout << "Controller sending: '" << message  << "'" << endl;
+                        for_each( ctrl_sockets.begin( ), ctrl_sockets.end( ),
+                                  [message](zmq::socket_t *sock) {
+                                      // Send a request
+                                      zmq::message_t r1( message );
+                                      sock->send(r1); } );
+                    }
                     fflush(stdout);
                 };
 
@@ -151,13 +157,53 @@ int main( int argc, char *argv[] ) {
     }
 
     send( "file@"+lock_file );
-    send( at(now( ) + seconds(1),"write") );
+
+#if 0
+    for (int i=0; i < 1; ++i) {
+        fflush( stdout );
+        send( "read" );
+        for ( int r=1; r < locker_count; ++r ) {
+            send( "releaseif", ctrl_sockets[r] );
+        }
+        send( "write", ctrl_sockets[0] );
+        send( fortime(450,"sleep"), ctrl_sockets[0] );
+        send( "releaseif", ctrl_sockets[0] );
+        send( "write" );
+        send( "read" );
+        send( "releaseif" );
+        send( "releaseif" );
+    }
+#else
+    for (int i=0; i < 1; ++i) {
+        fflush( stdout );
+        send( "read" );
+        for ( int r=1; r < locker_count; ++r ) {
+            send( "releaseif", ctrl_sockets[r] );
+        }
+        send( "write", ctrl_sockets[0] );
+        send( fortime(450,"sleep"), ctrl_sockets[0] );
+        send( "releaseif", ctrl_sockets[0] );
+        send( "releaseif" );
+    }
+#endif
+    // // recv( []( const pair<pid_t,string> &r ) -> bool {
+    // //           cout << "Controller received: " << get<1>(r) << " from " << get<0>(r) << endl;
+    // //           return true;   /*** true means don't retain result in return ***/
+    // //       } );
+    // send( fortime(2500000/2,"sleep") );
+    // // send( at(now( ) + milliseconds(250),"read") );
     send( "releaseif" );
     recv( []( const pair<pid_t,string> &r ) -> bool {
               cout << "Controller received: " << get<1>(r) << " from " << get<0>(r) << endl;
               return true;   /*** true means don't retain result in return ***/
           } );
+
     send( "stop" );
+
+    recv( []( const pair<pid_t,string> &r ) -> bool {
+              cout << "Controller received: " << get<1>(r) << " from " << get<0>(r) << endl;
+              return true;   /*** true means don't retain result in return ***/
+          } );
 
     int status = 0;
     pid_t cpid = 0;

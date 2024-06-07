@@ -35,16 +35,18 @@ pid_t pid = getpid( );
 
 enum Command { WRITELOCK, WRITELOCKNOW, READLOCK, READLOCKNOW,
                RELEASELOCK, RELEASELOCKIF, RELEASELOCKNOW, RELEASELOCKNOWIF,
-               LOCKFILE, STOP, ERROR };
-enum Action { WRITE, READ, RELEASE };
+               LOCKFILE, SLEEPCMD, STOP, ERROR };
+enum Action { WRITE, READ, RELEASE, SLEEP };
 
 inline std::ostream& operator<<( std::ostream &os, Action act ) {
     switch (act) {
-    case WRITELOCK: os << "write lock";
+    case WRITE: os << "write lock";
                break;
     case READ: os << "read lock";
                break;
     case RELEASE: os << "release lock";
+               break;
+    case SLEEP: os << "sleeping";
                break;
     default: os << "unknown";
     }
@@ -70,6 +72,8 @@ inline std::ostream& operator<<( std::ostream &os, Command cmd ) {
     case RELEASELOCKNOWIF: os << "immediate release lock if held";
                break;
     case LOCKFILE: os << "set lock file";
+               break;
+    case SLEEPCMD: os << "sleep";
                break;
     case STOP: os << "stop";
                break;
@@ -139,6 +143,11 @@ private:
 
 inline auto now( ) { return high_resolution_clock::now( ); }
 
+unsigned parseseconds( const std::string &s ) {
+    long result = 0;
+    sscanf( s.c_str( ), "%d", &result );
+    return result;
+}
 time_point<system_clock> parsetime( const std::string &s ) {
     // 2024-03-21 17:04:22.022828043
     long Y=0, m=0, d=0, H=0, M=0, S=0;
@@ -220,6 +229,12 @@ tuple<Command,vector<string>> unpack_command( const string &cmd ) {
             return make_result( RELEASELOCKIF, cmd.substr(5) );
         } else {
             return make_result( ERROR, "release lock if held command contains too few arguments" );
+        }
+    } else if ( cmd.rfind("sleep@", 0) == 0 ) {
+        if ( cmd.size( ) > 6 ) {   // expect cmd == "sleep@<useconds>"
+            return make_result( SLEEPCMD, cmd.substr(6) );
+        } else {
+            return make_result( ERROR, "sleep command contains too few arguments" );
         }
     } else if ( cmd == "write" ) {
             return make_result( WRITELOCKNOW );
@@ -338,7 +353,7 @@ int main( int argc, char *argv[] ) {
             break;
         case RELEASELOCKIF:
             if ( ! lock.locked( ) ) {
-                cout << now( ) << ": Locker " << pid << " NOT executing " << command_type << " no lock held" << endl;
+                cout << now( ) << ": Locker " << pid << " NOT executing '" << command_type << "' no lock held" << endl;
                 break;
             }
         case RELEASELOCK:
@@ -364,7 +379,7 @@ int main( int argc, char *argv[] ) {
             break;
         case RELEASELOCKNOWIF:
             if ( ! lock.locked( ) ) {
-                cout << now( ) << ": Locker " << pid << " NOT executing " << command_type << " no lock held" << endl;
+                cout << now( ) << ": Locker " << pid << " NOT executing '" << command_type << "' no lock held" << endl;
                 break;
             }
         case RELEASELOCKNOW:
@@ -372,6 +387,13 @@ int main( int argc, char *argv[] ) {
         case WRITELOCKNOW:
             //execute_command_now( ctoa(command_type), lock );
             execute_command_now( ctoa(command_type), lock );
+            break;
+        case SLEEPCMD:
+            {
+                auto sleep_time = parseseconds(get<1>(command)[0]);
+                cout << "Locker " << pid << " doing action " << command_type << " for " << sleep_time << endl;
+                microsleep(microseconds(sleep_time));
+            }
             break;
         case STOP:
             cmd_socket.close( );
